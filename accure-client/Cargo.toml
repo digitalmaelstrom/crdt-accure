@@ -1,0 +1,26 @@
+[package]
+name = "accure-client"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+accure-core.workspace = true
+serde.workspace = true
+bincode.workspace = true
+tokio.workspace = true
+tokio-stream = { version = "0.1", features = ["sync"] }
+clap.workspace = true
+anyhow.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
+futures.workspace = true
+
+[[bin]]
+name = "accure-client"
+path = "src/main.rs"
+
+[[bin]]
+name = "accure-send"
+path = "src/send.rs"

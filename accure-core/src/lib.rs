@@ -1,0 +1,20 @@
+//! ACCURE core library.
+//!
+//! Implements the data types and algorithms of the paper
+//! "Access Control based on CRDTs for Collaborative Distributed
+//! Applications" (Rault, Ignat, Perrin, 2023).
+
+pub mod dot;
+pub mod op;
+pub mod dag;
+pub mod state;
+pub mod validity;
+pub mod compensation;
+pub mod integrate;
+pub mod automerge_bridge;
+pub mod wire;
+pub mod messages;
+
+pub use dot::{Dot, SiteId};
+pub use op::{DocOp, Effect, Operation, PolicyOp, Right, TextEdit};
+pub use state::{AccessTuple, State, Strategy};
