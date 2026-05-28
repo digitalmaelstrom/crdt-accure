@@ -160,3 +160,42 @@ fn missing_dots_allow_can_cover_gap() {
     assert_eq!(state.valid.get(&seen_before_allow.dot), Some(&true));
     assert_eq!(state.valid.get(&concurrent_after_allow.dot), Some(&false));
 }
+
+#[test]
+fn concurrent_batch_triggers_bulk_undo_redo() {
+    let mut sites = peers(&["S1", "S2"]);
+    let (mut s2, mut d2) = sites.pop().unwrap();
+    let (mut s1, mut d1) = sites.pop().unwrap();
+
+    let mut doc_dots = Vec::new();
+    for ch in ['a', 'b', 'c', 'd', 'e', 'f'] {
+        let op = update_document(&mut s1, &mut d1, TextEdit::Insert { pos: 99, ch }).unwrap();
+        doc_dots.push(op.dot);
+    }
+    assert_eq!(current_text(&s1), "abcdef");
+
+    // 7 concurrent operations total: 6 document writes on S1, 1 deny on S2.
+    update_policy(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Deny).unwrap();
+    sync_pair(&mut d1, &mut d2);
+
+    rebuild_from_automerge(&mut s1, &mut d1);
+    rebuild_from_automerge(&mut s2, &mut d2);
+    assert_eq!(current_text(&s1), "");
+    assert_eq!(current_text(&s2), "");
+    for dot in &doc_dots {
+        assert_eq!(s1.valid.get(dot), Some(&false));
+        assert_eq!(s2.valid.get(dot), Some(&false));
+    }
+
+    update_policy(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Allow).unwrap();
+    sync_pair(&mut d1, &mut d2);
+
+    rebuild_from_automerge(&mut s1, &mut d1);
+    rebuild_from_automerge(&mut s2, &mut d2);
+    assert_eq!(current_text(&s1), "abcdef");
+    assert_eq!(current_text(&s2), "abcdef");
+    for dot in &doc_dots {
+        assert_eq!(s1.valid.get(dot), Some(&true));
+        assert_eq!(s2.valid.get(dot), Some(&true));
+    }
+}
