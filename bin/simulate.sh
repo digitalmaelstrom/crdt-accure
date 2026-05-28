@@ -37,6 +37,7 @@ send() {
     local label="$1" port="$2"; shift 2
     "$BIN/accure-send" --server "127.0.0.1:$port" --label "$label" "$@"
 }
+
 wait_port() {
     local port="$1" timeout=30 i=0
     while ! ss -ltn 2>/dev/null | grep -q ":${port}[[:space:]]"; do
@@ -58,7 +59,7 @@ log "Stopping any previous simulation processes…"
 for port in $S1_PEER $S2_PEER $S3_PEER $S1_CLIENT $S2_CLIENT $S3_CLIENT; do
     # find PIDs listening on these ports and kill them
     pids=$(ss -tlnp 2>/dev/null | awk -v p=":$port " '$0 ~ p {
-        match($0, /pid=([0-9]+)/, m); if (m[1]) print m[1]
+        if (match($0, /pid=[0-9]+/)) print substr($0, RSTART + 4, RLENGTH - 4)
     }')
     for pid in $pids; do kill "$pid" 2>/dev/null || true; done
 done
