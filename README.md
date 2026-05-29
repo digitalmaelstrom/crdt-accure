@@ -195,7 +195,9 @@ S0  ●───────────────●────────�
                                      missing_dots=[S1:2]
 
     S1{W} validity:  ┌── allowed interval (covers ..S1:3 and gap S1:2) ──┐  denied ▶
-                     S1:2 ✔ (covered gap)   S1:3 ✔ (seen)     S1:4 ✘ (concurrent/after)
+                     S1:2  ✔  (covered gap)
+                     S1:3  ✔  (seen at allow)
+                     S1:4  ✘  (concurrent / after allow)
 
 S1:2 is reinstated because the allow explicitly covers the missing dot;
 S1:3 is valid as it was seen when the allow was generated; S1:4 is
@@ -208,11 +210,11 @@ document and policy ops is applied across three peers in random order, with
 hold identical document text and validity maps:
 
 ```
-A  ●──insert──┬──allow──────────────┬───────────────●
-              │                      │
-B  ●──allow───┤      (random order   │   ──sync──▶   ●   all peers:
-              │       across A/B/C)   │              │   same doc text
-C  ●─────────insert──────────────────┴──────────────●   same validity
+A  ●──insert──┬──allow───────────────┬───────────────●
+              │                       │
+B  ●──allow───┤   (ops applied in     │   ──sync──▶   ●   all peers:
+              │    random order        │              │   same doc text
+C  ●─────────insert───────────────────┴──────────────●   same validity
 ```
 
 ## Bootstrap policy
