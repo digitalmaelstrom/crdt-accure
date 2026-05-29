@@ -109,14 +109,32 @@ cargo test --workspace
 This runs:
 - DAG unit tests (`accure-core`).
 - Paper-figure scenarios (`accure-core/tests/paper_figures.rs`): Fig. 1
-  policy convergence, Fig. 2 compensation after concurrent deny, and
-  toggling / dependency tests.
+  policy convergence, Fig. 2 compensation after concurrent deny,
+  toggling / dependency tests, and multi-peer cascading deny with
+  undo/redo reconciliation.
 - Property-based convergence (`accure-core/tests/convergence_proptest.rs`):
   random interleavings of document + policy ops across three in-memory
   peers must produce identical final state on every site after sync.
 - Two-server integration (`accure-server/tests/two_server_convergence.rs`):
   spawns two real `accure-server` processes communicating over loopback
   TCP and drives them through the binary client wire protocol.
+
+### Multi-peer cascading deny scenario
+
+The `multi_peer_cascading_deny_undo_redo` test exercises a non-trivial
+conflict requiring undo/redo reconciliation on **two** peers across
+multiple policy intervals:
+
+![Multi-peer cascading deny](ref/multi_peer_cascading_deny.svg)
+
+| Interval | Action | Effect |
+|----------|--------|--------|
+| 0 | S1 inserts 'a','b'; S2 inserts 'x','y' (concurrent) | All edits valid |
+| 1 | S3 → deny(S1, Write); sync all | S1's edits undone; S2 inserts 'z' |
+| 2 | S3 → deny(S2, Write); sync all | S2's edits undone; document empty |
+| 3 | S3 → allow(S1, Write) + allow(S2, Write); sync all | Both peers' edits redone |
+
+All three peers converge to identical state after each interval.
 
 ## Bootstrap policy
 
