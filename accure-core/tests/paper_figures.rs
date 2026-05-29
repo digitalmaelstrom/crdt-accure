@@ -2,12 +2,12 @@
 //! bootstrap (every site has A/R/W on itself).
 
 use accure_core::integrate::{
-    current_text, new_shared_doc, new_state_from_bytes, rebuild_from_automerge, update_document,
-    update_policy,
+    current_text, effect_document, effect_policy, new_shared_doc, new_state_from_bytes,
+    rebuild_from_automerge, update_document, update_policy,
 };
 use accure_core::dot::Dot;
-use accure_core::op::{Effect, Right, TextEdit};
-use accure_core::state::Strategy;
+use accure_core::op::{DocOp, Effect, PolicyOp, Right, TextEdit};
+use accure_core::state::{State, Strategy};
 use accure_core::validity::eval;
 use automerge::sync::SyncDoc;
 
@@ -112,4 +112,90 @@ fn toggle_deny_then_allow() {
     assert!(!eval(&s, &"B".into(), Right::Write));
     update_policy(&mut s, &mut d, "B".into(), Right::Write, Effect::Allow).unwrap();
     assert!(eval(&s, &"B".into(), Right::Write));
+}
+
+#[test]
+fn missing_dots_allow_can_cover_gap() {
+    let mut state = State::new("S0", Strategy::Integrity);
+    state.bootstrap_self();
+
+    let deny = PolicyOp {
+        dot: Dot::new("S0", 1),
+        target: "S1".into(),
+        right: Right::Write,
+        effect: Effect::Deny,
+        deps: vec![],
+        last_dot_seen: None,
+        missing_dots: vec![],
+    };
+    effect_policy(&mut state, &deny);
+
+    let allow = PolicyOp {
+        dot: Dot::new("S0", 2),
+        target: "S1".into(),
+        right: Right::Write,
+        effect: Effect::Allow,
+        deps: vec![deny.dot.clone()],
+        last_dot_seen: Some(Dot::new("S1", 3)),
+        missing_dots: vec![Dot::new("S1", 2)],
+    };
+    effect_policy(&mut state, &allow);
+
+    let covered_gap = DocOp { dot: Dot::new("S1", 2), deps: vec![], edit: TextEdit::Insert { pos: 0, ch: 'a' } };
+    let seen_before_allow = DocOp {
+        dot: Dot::new("S1", 3),
+        deps: vec![],
+        edit: TextEdit::Insert { pos: 1, ch: 'b' },
+    };
+    let concurrent_after_allow = DocOp {
+        dot: Dot::new("S1", 4),
+        deps: vec![],
+        edit: TextEdit::Insert { pos: 2, ch: 'c' },
+    };
+    effect_document(&mut state, &covered_gap);
+    effect_document(&mut state, &seen_before_allow);
+    effect_document(&mut state, &concurrent_after_allow);
+
+    assert_eq!(state.valid.get(&covered_gap.dot), Some(&true));
+    assert_eq!(state.valid.get(&seen_before_allow.dot), Some(&true));
+    assert_eq!(state.valid.get(&concurrent_after_allow.dot), Some(&false));
+}
+
+#[test]
+fn concurrent_batch_triggers_bulk_undo_redo() {
+    let mut sites = peers(&["S1", "S2"]);
+    let (mut s2, mut d2) = sites.pop().unwrap();
+    let (mut s1, mut d1) = sites.pop().unwrap();
+
+    let mut doc_dots = Vec::new();
+    for ch in ['a', 'b', 'c', 'd', 'e', 'f'] {
+        let op = update_document(&mut s1, &mut d1, TextEdit::Insert { pos: 99, ch }).unwrap();
+        doc_dots.push(op.dot);
+    }
+    assert_eq!(current_text(&s1), "abcdef");
+
+    // 7 concurrent operations total: 6 document writes on S1, 1 deny on S2.
+    update_policy(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Deny).unwrap();
+    sync_pair(&mut d1, &mut d2);
+
+    rebuild_from_automerge(&mut s1, &mut d1);
+    rebuild_from_automerge(&mut s2, &mut d2);
+    assert_eq!(current_text(&s1), "");
+    assert_eq!(current_text(&s2), "");
+    for dot in &doc_dots {
+        assert_eq!(s1.valid.get(dot), Some(&false));
+        assert_eq!(s2.valid.get(dot), Some(&false));
+    }
+
+    update_policy(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Allow).unwrap();
+    sync_pair(&mut d1, &mut d2);
+
+    rebuild_from_automerge(&mut s1, &mut d1);
+    rebuild_from_automerge(&mut s2, &mut d2);
+    assert_eq!(current_text(&s1), "abcdef");
+    assert_eq!(current_text(&s2), "abcdef");
+    for dot in &doc_dots {
+        assert_eq!(s1.valid.get(dot), Some(&true));
+        assert_eq!(s2.valid.get(dot), Some(&true));
+    }
 }
