@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant A
+    participant B
+    participant C
+    Note over A,C: fixed multiset of doc + policy ops, random order
+    A->>A: insert
+    B->>B: allow
+    C->>C: insert
+    A-->>B: sync
+    B-->>C: sync
+    A-->>C: sync
+    Note over A,C: final full sync →<br/>all peers: same doc text · same validity

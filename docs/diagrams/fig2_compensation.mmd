@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant S1
+    participant S2
+    Note over S1: policy S1:ARW · doc {}
+    Note over S2: policy S1:ARW · doc {}
+    S1->>S1: write(0,a) = S1:1
+    Note over S1: policy S1:ARW · doc {a}
+    S2->>S2: deny(S1,W) = S2:1
+    Note over S2: policy S1:AR · doc {}
+    S1-->>S2: sync
+    S2-->>S1: sync
+    Note over S1: re-eval S1:1 unauthorized → undo
+    Note over S1,S2: converged: policy S1:AR · doc {}

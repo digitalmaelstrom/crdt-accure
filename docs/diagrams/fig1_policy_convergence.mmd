@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant S1
+    participant S2
+    participant S3
+    Note over S1,S3: bootstrap: S1:ARW · S2:ARW · S3:ARW
+    S1->>S1: deny(S2,A) = S1:1
+    Note over S1: S2:RW
+    S2->>S2: deny(S1,A) = S2:1
+    Note over S2: S1:RW
+    Note right of S2: S1:1 and S2:1 are concurrent
+    S1-->>S2: sync
+    S2-->>S3: sync
+    S1-->>S3: sync
+    Note over S1,S3: lower bound keeps most restrictive →<br/>converged: S1:RW · S2:RW

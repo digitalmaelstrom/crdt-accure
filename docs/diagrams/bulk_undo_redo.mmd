@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant S1
+    participant S2
+    Note over S1,S2: policy S1:ARW · doc {}
+    S1->>S1: write a..f = S1:1..S1:6
+    Note over S1: doc {abcdef}
+    S2->>S2: deny(S1,W) = S2:1
+    Note over S2: policy S1:AR · doc {}
+    S1-->>S2: sync
+    S2-->>S1: sync
+    Note over S1,S2: S1:1..6 undone in bulk → doc {}
+    S2->>S2: allow(S1,W) = S2:2
+    S1-->>S2: sync
+    S2-->>S1: sync
+    Note over S1,S2: writes redone → converged: policy S1:ARW · doc {abcdef}

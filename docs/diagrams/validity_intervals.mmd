@@ -1,0 +1,9 @@
+flowchart LR
+    subgraph S0["S0 — policy ops on access tuple S1{W}"]
+        direction LR
+        deny["deny(S1,W) = S0:1"] --> allow["allow(S1,W) = S0:2<br/>deps=[S0:1]<br/>last_dot_seen=S1:3<br/>missing_dots=[S1:2]"]
+    end
+    allow --> interval["allowed interval<br/>covers ..S1:3 and gap S1:2"]
+    interval --> d2["S1:2 ✔ covered gap"]
+    interval --> d3["S1:3 ✔ seen at allow"]
+    interval --> d4["S1:4 ✘ concurrent / after allow"]
