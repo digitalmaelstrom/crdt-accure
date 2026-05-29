@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="monospace" font-size="12">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#333"/>
+    </marker>
+  </defs>
+
+  <text x="450" y="20" text-anchor="middle" font-size="14" font-weight="bold">Multi-Peer Cascading Deny with Undo/Redo Reconciliation</text>
+
+  <!-- Peer timelines -->
+  <line x1="100" y1="60" x2="100" y2="490" stroke="#333" stroke-width="2"/>
+  <line x1="400" y1="60" x2="400" y2="490" stroke="#333" stroke-width="2"/>
+  <line x1="700" y1="60" x2="700" y2="490" stroke="#333" stroke-width="2"/>
+  <text x="100" y="50" text-anchor="middle" font-weight="bold" font-size="13">S1</text>
+  <text x="400" y="50" text-anchor="middle" font-weight="bold" font-size="13">S2</text>
+  <text x="700" y="50" text-anchor="middle" font-weight="bold" font-size="13">S3</text>
+
+  <!-- Interval 0 background -->
+  <rect x="50" y="55" width="700" height="80" fill="#e8f5e9" rx="4" opacity="0.5"/>
+  <text x="810" y="95" font-size="10" fill="#388e3c">Interval 0</text>
+  <text x="810" y="107" font-size="9" fill="#388e3c">all allowed</text>
+
+  <!-- Interval 0: Document edits -->
+  <circle cx="100" cy="80" r="5" fill="#1976d2"/>
+  <text x="115" y="84" fill="#1976d2" font-size="11">insert 'a'</text>
+  <circle cx="100" cy="105" r="5" fill="#1976d2"/>
+  <text x="115" y="109" fill="#1976d2" font-size="11">insert 'b'</text>
+
+  <circle cx="400" cy="80" r="5" fill="#1976d2"/>
+  <text x="415" y="84" fill="#1976d2" font-size="11">insert 'x'</text>
+  <circle cx="400" cy="105" r="5" fill="#1976d2"/>
+  <text x="415" y="109" fill="#1976d2" font-size="11">insert 'y'</text>
+
+  <!-- Interval 1 background -->
+  <rect x="50" y="135" width="700" height="130" fill="#fff3e0" rx="4" opacity="0.5"/>
+  <text x="810" y="195" font-size="10" fill="#e65100">Interval 1</text>
+  <text x="810" y="207" font-size="9" fill="#e65100">S1 denied</text>
+
+  <!-- Interval 1: S3 denies S1 -->
+  <circle cx="700" cy="155" r="5" fill="#d32f2f"/>
+  <text x="540" y="159" fill="#d32f2f" font-size="11">deny(S1, Write)</text>
+
+  <!-- Sync arrows interval 1 -->
+  <line x1="700" y1="175" x2="400" y2="190" stroke="#999" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <line x1="700" y1="175" x2="100" y2="190" stroke="#999" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <line x1="100" y1="190" x2="400" y2="195" stroke="#999" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <text x="250" y="210" text-anchor="middle" font-size="10" fill="#666">sync all</text>
+
+  <!-- Undo marker for S1 -->
+  <rect x="60" y="215" width="80" height="18" fill="#ffcdd2" rx="3"/>
+  <text x="100" y="228" text-anchor="middle" font-size="10" fill="#b71c1c">undo 'a','b'</text>
+
+  <!-- S2 inserts 'z' still allowed -->
+  <circle cx="400" cy="250" r="5" fill="#1976d2"/>
+  <text x="415" y="254" fill="#1976d2" font-size="11">insert 'z'</text>
+
+  <!-- Interval 2 background -->
+  <rect x="50" y="265" width="700" height="110" fill="#fce4ec" rx="4" opacity="0.5"/>
+  <text x="810" y="315" font-size="10" fill="#880e4f">Interval 2</text>
+  <text x="810" y="327" font-size="9" fill="#880e4f">S1+S2 denied</text>
+
+  <!-- Interval 2: S3 denies S2 -->
+  <circle cx="700" cy="285" r="5" fill="#d32f2f"/>
+  <text x="540" y="289" fill="#d32f2f" font-size="11">deny(S2, Write)</text>
+
+  <!-- Sync arrows interval 2 -->
+  <line x1="700" y1="305" x2="400" y2="320" stroke="#999" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <line x1="700" y1="305" x2="100" y2="320" stroke="#999" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <line x1="400" y1="320" x2="100" y2="325" stroke="#999" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <text x="250" y="340" text-anchor="middle" font-size="10" fill="#666">sync all</text>
+
+  <!-- Undo marker for S2 -->
+  <rect x="355" y="345" width="90" height="18" fill="#ffcdd2" rx="3"/>
+  <text x="400" y="358" text-anchor="middle" font-size="10" fill="#b71c1c">undo 'x','y','z'</text>
+
+  <!-- Interval 3 background -->
+  <rect x="50" y="375" width="700" height="110" fill="#e3f2fd" rx="4" opacity="0.5"/>
+  <text x="810" y="425" font-size="10" fill="#0d47a1">Interval 3</text>
+  <text x="810" y="437" font-size="9" fill="#0d47a1">all re-allowed</text>
+
+  <!-- Interval 3: S3 re-allows both -->
+  <circle cx="700" cy="395" r="5" fill="#2e7d32"/>
+  <text x="540" y="399" fill="#2e7d32" font-size="11">allow(S1, Write)</text>
+  <circle cx="700" cy="415" r="5" fill="#2e7d32"/>
+  <text x="540" y="419" fill="#2e7d32" font-size="11">allow(S2, Write)</text>
+
+  <!-- Sync arrows interval 3 -->
+  <line x1="700" y1="435" x2="400" y2="450" stroke="#999" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <line x1="700" y1="435" x2="100" y2="450" stroke="#999" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <line x1="400" y1="450" x2="100" y2="455" stroke="#999" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <text x="250" y="470" text-anchor="middle" font-size="10" fill="#666">sync all</text>
+
+  <!-- Redo markers -->
+  <rect x="60" y="472" width="80" height="18" fill="#c8e6c9" rx="3"/>
+  <text x="100" y="485" text-anchor="middle" font-size="10" fill="#1b5e20">redo 'a','b'</text>
+  <rect x="355" y="472" width="90" height="18" fill="#c8e6c9" rx="3"/>
+  <text x="400" y="485" text-anchor="middle" font-size="10" fill="#1b5e20">redo 'x','y','z'</text>
+
+  <!-- Legend -->
+  <circle cx="70" cy="510" r="4" fill="#1976d2"/>
+  <text x="80" y="514" font-size="10">Doc edit</text>
+  <circle cx="160" cy="510" r="4" fill="#d32f2f"/>
+  <text x="170" y="514" font-size="10">Deny policy</text>
+  <circle cx="270" cy="510" r="4" fill="#2e7d32"/>
+  <text x="280" y="514" font-size="10">Allow policy</text>
+  <rect x="360" y="506" width="12" height="8" fill="#ffcdd2" rx="2"/>
+  <text x="378" y="514" font-size="10">Undo</text>
+  <rect x="420" y="506" width="12" height="8" fill="#c8e6c9" rx="2"/>
+  <text x="438" y="514" font-size="10">Redo</text>
+</svg>

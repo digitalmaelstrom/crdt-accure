@@ -199,3 +199,142 @@ fn concurrent_batch_triggers_bulk_undo_redo() {
         assert_eq!(s2.valid.get(dot), Some(&true));
     }
 }
+
+/// Multi-peer cascading deny across two policy intervals requiring undo/redo
+/// reconciliation on both S1 and S2.
+///
+/// Timeline:
+///   Interval 0 (all allowed):
+///     S1 inserts 'a','b'   — concurrently — S2 inserts 'x','y'
+///   Interval 1 (S3 denies S1 Write):
+///     S3 → deny(S1, Write); sync all → S1's 'a','b' undone
+///     S2 inserts 'z' (still allowed)
+///   Interval 2 (S3 denies S2 Write):
+///     S3 → deny(S2, Write); sync all → S2's 'x','y','z' undone
+///   Interval 3 (S3 re-allows both):
+///     S3 → allow(S1, Write); S3 → allow(S2, Write); sync all
+///     → S1's 'a','b' redone, S2's 'x','y','z' redone
+///
+/// Asserts convergence of all three peers after each interval transition.
+#[test]
+fn multi_peer_cascading_deny_undo_redo() {
+    let mut sites = peers(&["S1", "S2", "S3"]);
+    let (mut s3, mut d3) = sites.pop().unwrap();
+    let (mut s2, mut d2) = sites.pop().unwrap();
+    let (mut s1, mut d1) = sites.pop().unwrap();
+
+    // -- Interval 0: S1 and S2 make concurrent document edits --
+    let op_a = update_document(&mut s1, &mut d1, TextEdit::Insert { pos: 0, ch: 'a' }).unwrap();
+    let op_b = update_document(&mut s1, &mut d1, TextEdit::Insert { pos: 99, ch: 'b' }).unwrap();
+    assert_eq!(current_text(&s1), "ab");
+
+    let op_x = update_document(&mut s2, &mut d2, TextEdit::Insert { pos: 0, ch: 'x' }).unwrap();
+    let op_y = update_document(&mut s2, &mut d2, TextEdit::Insert { pos: 99, ch: 'y' }).unwrap();
+    assert_eq!(current_text(&s2), "xy");
+
+    let s1_dots = vec![op_a.dot.clone(), op_b.dot.clone()];
+    let s2_dots_early = vec![op_x.dot.clone(), op_y.dot.clone()];
+
+    // -- Interval 1: S3 denies S1 Write concurrently with the edits above --
+    update_policy(&mut s3, &mut d3, "S1".into(), Right::Write, Effect::Deny).unwrap();
+    assert!(!eval(&s3, &"S1".into(), Right::Write));
+
+    // Sync all peers
+    for _ in 0..3 {
+        sync_pair(&mut d1, &mut d2);
+        sync_pair(&mut d2, &mut d3);
+        sync_pair(&mut d1, &mut d3);
+    }
+    rebuild_from_automerge(&mut s1, &mut d1);
+    rebuild_from_automerge(&mut s2, &mut d2);
+    rebuild_from_automerge(&mut s3, &mut d3);
+
+    // S1's edits are undone on all sites (concurrent with deny)
+    for dot in &s1_dots {
+        assert_eq!(s1.valid.get(dot), Some(&false), "S1 dot {:?} should be invalid on S1", dot);
+        assert_eq!(s2.valid.get(dot), Some(&false), "S1 dot {:?} should be invalid on S2", dot);
+        assert_eq!(s3.valid.get(dot), Some(&false), "S1 dot {:?} should be invalid on S3", dot);
+    }
+    // S2's edits remain valid (S2 still has Write)
+    for dot in &s2_dots_early {
+        assert_eq!(s1.valid.get(dot), Some(&true), "S2 dot {:?} should be valid on S1", dot);
+        assert_eq!(s2.valid.get(dot), Some(&true), "S2 dot {:?} should be valid on S2", dot);
+        assert_eq!(s3.valid.get(dot), Some(&true), "S2 dot {:?} should be valid on S3", dot);
+    }
+    // All three peers converge on the same text (only S2's edits visible)
+    let text_after_interval1 = current_text(&s1);
+    assert_eq!(text_after_interval1, current_text(&s2));
+    assert_eq!(text_after_interval1, current_text(&s3));
+    assert!(!text_after_interval1.contains('a') && !text_after_interval1.contains('b'));
+    assert!(text_after_interval1.contains('x') && text_after_interval1.contains('y'));
+
+    // -- S2 makes another edit while still allowed --
+    let op_z = update_document(&mut s2, &mut d2, TextEdit::Insert { pos: 99, ch: 'z' }).unwrap();
+    let s2_dots_all = vec![op_x.dot.clone(), op_y.dot.clone(), op_z.dot.clone()];
+
+    // -- Interval 2: S3 denies S2 Write --
+    update_policy(&mut s3, &mut d3, "S2".into(), Right::Write, Effect::Deny).unwrap();
+    assert!(!eval(&s3, &"S2".into(), Right::Write));
+
+    // Sync all peers
+    for _ in 0..3 {
+        sync_pair(&mut d1, &mut d2);
+        sync_pair(&mut d2, &mut d3);
+        sync_pair(&mut d1, &mut d3);
+    }
+    rebuild_from_automerge(&mut s1, &mut d1);
+    rebuild_from_automerge(&mut s2, &mut d2);
+    rebuild_from_automerge(&mut s3, &mut d3);
+
+    // Now both S1 and S2 edits are undone
+    for dot in &s1_dots {
+        assert_eq!(s1.valid.get(dot), Some(&false), "S1 dot {:?} still invalid after interval 2", dot);
+        assert_eq!(s2.valid.get(dot), Some(&false));
+        assert_eq!(s3.valid.get(dot), Some(&false));
+    }
+    for dot in &s2_dots_all {
+        assert_eq!(s1.valid.get(dot), Some(&false), "S2 dot {:?} should be invalid after deny", dot);
+        assert_eq!(s2.valid.get(dot), Some(&false));
+        assert_eq!(s3.valid.get(dot), Some(&false));
+    }
+    // All peers converge on empty text
+    assert_eq!(current_text(&s1), "");
+    assert_eq!(current_text(&s2), "");
+    assert_eq!(current_text(&s3), "");
+
+    // -- Interval 3: S3 re-allows both S1 and S2 Write (redo) --
+    update_policy(&mut s3, &mut d3, "S1".into(), Right::Write, Effect::Allow).unwrap();
+    update_policy(&mut s3, &mut d3, "S2".into(), Right::Write, Effect::Allow).unwrap();
+    assert!(eval(&s3, &"S1".into(), Right::Write));
+    assert!(eval(&s3, &"S2".into(), Right::Write));
+
+    // Sync all peers
+    for _ in 0..3 {
+        sync_pair(&mut d1, &mut d2);
+        sync_pair(&mut d2, &mut d3);
+        sync_pair(&mut d1, &mut d3);
+    }
+    rebuild_from_automerge(&mut s1, &mut d1);
+    rebuild_from_automerge(&mut s2, &mut d2);
+    rebuild_from_automerge(&mut s3, &mut d3);
+
+    // Both S1 and S2 edits are redone on all peers
+    for dot in &s1_dots {
+        assert_eq!(s1.valid.get(dot), Some(&true), "S1 dot {:?} should be valid after allow", dot);
+        assert_eq!(s2.valid.get(dot), Some(&true));
+        assert_eq!(s3.valid.get(dot), Some(&true));
+    }
+    for dot in &s2_dots_all {
+        assert_eq!(s1.valid.get(dot), Some(&true), "S2 dot {:?} should be valid after allow", dot);
+        assert_eq!(s2.valid.get(dot), Some(&true));
+        assert_eq!(s3.valid.get(dot), Some(&true));
+    }
+    // All peers converge on the same final text containing all edits
+    let final_text = current_text(&s1);
+    assert_eq!(final_text, current_text(&s2));
+    assert_eq!(final_text, current_text(&s3));
+    assert!(final_text.contains('a') && final_text.contains('b'),
+        "S1 edits missing from final text: {}", final_text);
+    assert!(final_text.contains('x') && final_text.contains('y') && final_text.contains('z'),
+        "S2 edits missing from final text: {}", final_text);
+}
