@@ -245,11 +245,22 @@ fn multi_peer_cascading_deny_undo_redo() {
         sync_pair(&mut d2, &mut d3);
         sync_pair(&mut d1, &mut d3);
     }
+
+    // Capture validity BEFORE rebuild to prove undo transition occurs
+    let s1_valid_before: Vec<_> = s1_dots.iter().map(|d| s1.valid.get(d).copied()).collect();
+    // S1's dots were initially valid (created locally with Write)
+    assert!(s1_valid_before.iter().all(|v| *v == Some(true)),
+        "S1 dots should be valid before rebuild: {:?}", s1_valid_before);
+
     rebuild_from_automerge(&mut s1, &mut d1);
     rebuild_from_automerge(&mut s2, &mut d2);
     rebuild_from_automerge(&mut s3, &mut d3);
 
-    // S1's edits are undone on all sites (concurrent with deny)
+    // Verify undo: S1's dots transitioned from valid → invalid (compensation)
+    for dot in &s1_dots {
+        assert_eq!(s1.valid.get(dot), Some(&false),
+            "S1 dot {:?} must transition to invalid (undo) on S1", dot);
+    }
     for dot in &s1_dots {
         assert_eq!(s1.valid.get(dot), Some(&false), "S1 dot {:?} should be invalid on S1", dot);
         assert_eq!(s2.valid.get(dot), Some(&false), "S1 dot {:?} should be invalid on S2", dot);
@@ -282,9 +293,22 @@ fn multi_peer_cascading_deny_undo_redo() {
         sync_pair(&mut d2, &mut d3);
         sync_pair(&mut d1, &mut d3);
     }
+
+    // Capture S2 validity BEFORE rebuild to prove undo transition occurs
+    let s2_valid_before: Vec<_> = s2_dots_all.iter().map(|d| s2.valid.get(d).copied()).collect();
+    // S2's dots were valid (created locally while S2 still had Write)
+    assert!(s2_valid_before.iter().all(|v| *v == Some(true)),
+        "S2 dots should be valid before rebuild: {:?}", s2_valid_before);
+
     rebuild_from_automerge(&mut s1, &mut d1);
     rebuild_from_automerge(&mut s2, &mut d2);
     rebuild_from_automerge(&mut s3, &mut d3);
+
+    // Verify undo: S2's dots transitioned from valid → invalid (compensation)
+    for dot in &s2_dots_all {
+        assert_eq!(s2.valid.get(dot), Some(&false),
+            "S2 dot {:?} must transition to invalid (undo) on S2", dot);
+    }
 
     // Now both S1 and S2 edits are undone
     for dot in &s1_dots {
@@ -314,9 +338,33 @@ fn multi_peer_cascading_deny_undo_redo() {
         sync_pair(&mut d2, &mut d3);
         sync_pair(&mut d1, &mut d3);
     }
+
+    // Capture validity BEFORE rebuild to prove redo transition occurs
+    let s1_valid_before_redo: Vec<_> = s1_dots.iter().map(|d| s1.valid.get(d).copied()).collect();
+    let s2_valid_before_redo: Vec<_> = s2_dots_all.iter().map(|d| s2.valid.get(d).copied()).collect();
+    // Both should be invalid before redo
+    assert!(s1_valid_before_redo.iter().all(|v| *v == Some(false)),
+        "S1 dots should be invalid before redo: {:?}", s1_valid_before_redo);
+    assert!(s2_valid_before_redo.iter().all(|v| *v == Some(false)),
+        "S2 dots should be invalid before redo: {:?}", s2_valid_before_redo);
+
     rebuild_from_automerge(&mut s1, &mut d1);
     rebuild_from_automerge(&mut s2, &mut d2);
     rebuild_from_automerge(&mut s3, &mut d3);
+
+    // Verify redo: dots transitioned from invalid → valid (compensation)
+    for dot in &s1_dots {
+        assert_eq!(s1.valid.get(dot), Some(&true),
+            "S1 dot {:?} must transition to valid (redo) on S1", dot);
+        assert_eq!(s2.valid.get(dot), Some(&true),
+            "S1 dot {:?} must transition to valid (redo) on S2", dot);
+    }
+    for dot in &s2_dots_all {
+        assert_eq!(s1.valid.get(dot), Some(&true),
+            "S2 dot {:?} must transition to valid (redo) on S1", dot);
+        assert_eq!(s2.valid.get(dot), Some(&true),
+            "S2 dot {:?} must transition to valid (redo) on S2", dot);
+    }
 
     // Both S1 and S2 edits are redone on all peers
     for dot in &s1_dots {
