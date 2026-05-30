@@ -52,6 +52,11 @@ pub enum TextEdit {
     Delete { pos: usize },
 }
 
+/// Type alias aligning `TextEdit` to the domain model naming convention.
+/// New code should prefer importing via `model::document::TextMutation`
+/// or `accure_core::TextMutation`. The underlying type remains `TextEdit`.
+pub type TextMutation = TextEdit;
+
 /// Policy operation, mirroring `BasicOperation` of `Type ..= policy`
 /// extended with `LastDotSeen` / `MissingDots` (Basic Type 2).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
