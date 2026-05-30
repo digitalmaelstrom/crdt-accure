@@ -39,7 +39,7 @@ impl Document {
     /// Compute the current rendered document text (compensation).
     ///
     /// Equivalent to [`integrate::current_text`].
-    pub fn compensation(state: &State) -> String {
+    pub fn compensate(state: &State) -> String {
         integrate::current_text(state)
     }
 }

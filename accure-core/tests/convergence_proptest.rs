@@ -114,7 +114,7 @@ proptest! {
             rebuild_from_automerge(s, d);
         }
 
-        let texts: Vec<String> = peers.iter().map(|(s, _)| Document::compensation(s)).collect();
+        let texts: Vec<String> = peers.iter().map(|(s, _)| Document::compensate(s)).collect();
         let valids: Vec<_> = peers.iter().map(|(s, _)| s.valid.clone()).collect();
         prop_assert!(texts.iter().all(|t| t == &texts[0]), "texts diverge: {:?}", texts);
         prop_assert!(valids.iter().all(|v| v == &valids[0]), "validity diverges");

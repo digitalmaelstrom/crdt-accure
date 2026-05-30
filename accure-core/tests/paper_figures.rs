@@ -43,7 +43,7 @@ fn fig2_compensation_after_concurrent_deny() {
     assert!(eval(&s2, &"S2".into(), Right::Admin));
 
     Document::update(&mut s1, &mut d1, TextMutation::Insert { pos: 0, ch: 'a' }).unwrap();
-    assert_eq!(Document::compensation(&s1), "a");
+    assert_eq!(Document::compensate(&s1), "a");
 
     Policy::update(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Deny).unwrap();
     assert!(!eval(&s2, &"S1".into(), Right::Write));
@@ -57,8 +57,8 @@ fn fig2_compensation_after_concurrent_deny() {
     let dot = Dot::new("S1", 1);
     assert_eq!(s1.valid.get(&dot), Some(&false));
     assert_eq!(s2.valid.get(&dot), Some(&false));
-    assert_eq!(Document::compensation(&s1), "");
-    assert_eq!(Document::compensation(&s2), "");
+    assert_eq!(Document::compensate(&s1), "");
+    assert_eq!(Document::compensate(&s2), "");
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn concurrent_batch_triggers_bulk_undo_redo() {
         let op = Document::update(&mut s1, &mut d1, TextMutation::Insert { pos: 99, ch }).unwrap();
         doc_dots.push(op.dot);
     }
-    assert_eq!(Document::compensation(&s1), "abcdef");
+    assert_eq!(Document::compensate(&s1), "abcdef");
 
     // 7 concurrent operations total: 6 document writes on S1, 1 deny on S2.
     Policy::update(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Deny).unwrap();
@@ -181,8 +181,8 @@ fn concurrent_batch_triggers_bulk_undo_redo() {
 
     rebuild_from_automerge(&mut s1, &mut d1);
     rebuild_from_automerge(&mut s2, &mut d2);
-    assert_eq!(Document::compensation(&s1), "");
-    assert_eq!(Document::compensation(&s2), "");
+    assert_eq!(Document::compensate(&s1), "");
+    assert_eq!(Document::compensate(&s2), "");
     for dot in &doc_dots {
         assert_eq!(s1.valid.get(dot), Some(&false));
         assert_eq!(s2.valid.get(dot), Some(&false));
@@ -193,8 +193,8 @@ fn concurrent_batch_triggers_bulk_undo_redo() {
 
     rebuild_from_automerge(&mut s1, &mut d1);
     rebuild_from_automerge(&mut s2, &mut d2);
-    assert_eq!(Document::compensation(&s1), "abcdef");
-    assert_eq!(Document::compensation(&s2), "abcdef");
+    assert_eq!(Document::compensate(&s1), "abcdef");
+    assert_eq!(Document::compensate(&s2), "abcdef");
     for dot in &doc_dots {
         assert_eq!(s1.valid.get(dot), Some(&true));
         assert_eq!(s2.valid.get(dot), Some(&true));
@@ -227,11 +227,11 @@ fn multi_peer_cascading_deny_undo_redo() {
     // -- Interval 0: S1 and S2 make concurrent document edits --
     let op_a = Document::update(&mut s1, &mut d1, TextMutation::Insert { pos: 0, ch: 'a' }).unwrap();
     let op_b = Document::update(&mut s1, &mut d1, TextMutation::Insert { pos: 99, ch: 'b' }).unwrap();
-    assert_eq!(Document::compensation(&s1), "ab");
+    assert_eq!(Document::compensate(&s1), "ab");
 
     let op_x = Document::update(&mut s2, &mut d2, TextMutation::Insert { pos: 0, ch: 'x' }).unwrap();
     let op_y = Document::update(&mut s2, &mut d2, TextMutation::Insert { pos: 99, ch: 'y' }).unwrap();
-    assert_eq!(Document::compensation(&s2), "xy");
+    assert_eq!(Document::compensate(&s2), "xy");
 
     let s1_dots = vec![op_a.dot.clone(), op_b.dot.clone()];
     let s2_dots_early = vec![op_x.dot.clone(), op_y.dot.clone()];
@@ -274,9 +274,9 @@ fn multi_peer_cascading_deny_undo_redo() {
         assert_eq!(s3.valid.get(dot), Some(&true), "S2 dot {:?} should be valid on S3", dot);
     }
     // All three peers converge on the same text (only S2's edits visible)
-    let text_after_interval1 = Document::compensation(&s1);
-    assert_eq!(text_after_interval1, Document::compensation(&s2));
-    assert_eq!(text_after_interval1, Document::compensation(&s3));
+    let text_after_interval1 = Document::compensate(&s1);
+    assert_eq!(text_after_interval1, Document::compensate(&s2));
+    assert_eq!(text_after_interval1, Document::compensate(&s3));
     assert!(!text_after_interval1.contains('a') && !text_after_interval1.contains('b'));
     assert!(text_after_interval1.contains('x') && text_after_interval1.contains('y'));
 
@@ -323,9 +323,9 @@ fn multi_peer_cascading_deny_undo_redo() {
         assert_eq!(s3.valid.get(dot), Some(&false));
     }
     // All peers converge on empty text
-    assert_eq!(Document::compensation(&s1), "");
-    assert_eq!(Document::compensation(&s2), "");
-    assert_eq!(Document::compensation(&s3), "");
+    assert_eq!(Document::compensate(&s1), "");
+    assert_eq!(Document::compensate(&s2), "");
+    assert_eq!(Document::compensate(&s3), "");
 
     // -- Interval 3: S3 re-allows both S1 and S2 Write (redo) --
     Policy::update(&mut s3, &mut d3, "S1".into(), Right::Write, Effect::Allow).unwrap();
@@ -379,9 +379,9 @@ fn multi_peer_cascading_deny_undo_redo() {
         assert_eq!(s3.valid.get(dot), Some(&true));
     }
     // All peers converge on the same final text containing all edits
-    let final_text = Document::compensation(&s1);
-    assert_eq!(final_text, Document::compensation(&s2));
-    assert_eq!(final_text, Document::compensation(&s3));
+    let final_text = Document::compensate(&s1);
+    assert_eq!(final_text, Document::compensate(&s2));
+    assert_eq!(final_text, Document::compensate(&s3));
     assert!(final_text.contains('a') && final_text.contains('b'),
         "S1 edits missing from final text: {}", final_text);
     assert!(final_text.contains('x') && final_text.contains('y') && final_text.contains('z'),

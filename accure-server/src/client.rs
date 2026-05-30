@@ -149,7 +149,7 @@ async fn handle(server: Arc<Server>, sock: TcpStream) -> Result<()> {
 
 pub async fn build_snapshot(server: &Server) -> Snapshot {
     let st = server.state.lock().await;
-    let document = Document::compensation(&st);
+    let document = Document::compensate(&st);
     // Compute (site, right, allowed) for every known target site.
     let mut sites: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     sites.insert(st.me.clone());
