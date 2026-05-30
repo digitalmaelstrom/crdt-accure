@@ -2,11 +2,12 @@
 //! bootstrap (every site has A/R/W on itself).
 
 use accure_core::integrate::{
-    current_text, effect_document, effect_policy, new_shared_doc, new_state_from_bytes,
-    rebuild_from_automerge, update_document, update_policy,
+    new_shared_doc, new_state_from_bytes, rebuild_from_automerge,
 };
+use accure_core::model::{Document, Policy};
+use accure_core::model::document::TextMutation;
 use accure_core::dot::Dot;
-use accure_core::op::{DocOp, Effect, PolicyOp, Right, TextEdit};
+use accure_core::op::{DocOp, Effect, PolicyOp, Right};
 use accure_core::state::{State, Strategy};
 use accure_core::validity::eval;
 use automerge::sync::SyncDoc;
@@ -41,10 +42,10 @@ fn fig2_compensation_after_concurrent_deny() {
     assert!(eval(&s1, &"S1".into(), Right::Write));
     assert!(eval(&s2, &"S2".into(), Right::Admin));
 
-    update_document(&mut s1, &mut d1, TextEdit::Insert { pos: 0, ch: 'a' }).unwrap();
-    assert_eq!(current_text(&s1), "a");
+    Document::update(&mut s1, &mut d1, TextMutation::Insert { pos: 0, ch: 'a' }).unwrap();
+    assert_eq!(Document::compensation(&s1), "a");
 
-    update_policy(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Deny).unwrap();
+    Policy::update(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Deny).unwrap();
     assert!(!eval(&s2, &"S1".into(), Right::Write));
 
     sync_pair(&mut d1, &mut d2);
@@ -56,8 +57,8 @@ fn fig2_compensation_after_concurrent_deny() {
     let dot = Dot::new("S1", 1);
     assert_eq!(s1.valid.get(&dot), Some(&false));
     assert_eq!(s2.valid.get(&dot), Some(&false));
-    assert_eq!(current_text(&s1), "");
-    assert_eq!(current_text(&s2), "");
+    assert_eq!(Document::compensation(&s1), "");
+    assert_eq!(Document::compensation(&s2), "");
 }
 
 #[test]
@@ -67,8 +68,8 @@ fn fig1_policy_convergence_integrity() {
     let (mut s2, mut d2) = sites.pop().unwrap();
     let (mut s1, mut d1) = sites.pop().unwrap();
 
-    update_policy(&mut s1, &mut d1, "S2".into(), Right::Admin, Effect::Deny).unwrap();
-    update_policy(&mut s2, &mut d2, "S1".into(), Right::Admin, Effect::Deny).unwrap();
+    Policy::update(&mut s1, &mut d1, "S2".into(), Right::Admin, Effect::Deny).unwrap();
+    Policy::update(&mut s2, &mut d2, "S1".into(), Right::Admin, Effect::Deny).unwrap();
 
     for _ in 0..3 {
         sync_pair(&mut d1, &mut d2);
@@ -99,18 +100,18 @@ fn fig1_policy_convergence_integrity() {
 fn invalid_deps_propagate() {
     let mut sites = peers(&["S1"]);
     let (mut s, mut d) = sites.pop().unwrap();
-    update_policy(&mut s, &mut d, "S1".into(), Right::Write, Effect::Deny).unwrap();
+    Policy::update(&mut s, &mut d, "S1".into(), Right::Write, Effect::Deny).unwrap();
     assert!(!eval(&s, &"S1".into(), Right::Write));
-    assert!(update_document(&mut s, &mut d, TextEdit::Insert { pos: 0, ch: 'x' }).is_err());
+    assert!(Document::update(&mut s, &mut d, TextMutation::Insert { pos: 0, ch: 'x' }).is_err());
 }
 
 #[test]
 fn toggle_deny_then_allow() {
     let mut sites = peers(&["A"]);
     let (mut s, mut d) = sites.pop().unwrap();
-    update_policy(&mut s, &mut d, "B".into(), Right::Write, Effect::Deny).unwrap();
+    Policy::update(&mut s, &mut d, "B".into(), Right::Write, Effect::Deny).unwrap();
     assert!(!eval(&s, &"B".into(), Right::Write));
-    update_policy(&mut s, &mut d, "B".into(), Right::Write, Effect::Allow).unwrap();
+    Policy::update(&mut s, &mut d, "B".into(), Right::Write, Effect::Allow).unwrap();
     assert!(eval(&s, &"B".into(), Right::Write));
 }
 
@@ -128,7 +129,7 @@ fn missing_dots_allow_can_cover_gap() {
         last_dot_seen: None,
         missing_dots: vec![],
     };
-    effect_policy(&mut state, &deny);
+    Policy::effect(&mut state, &deny);
 
     let allow = PolicyOp {
         dot: Dot::new("S0", 2),
@@ -139,22 +140,22 @@ fn missing_dots_allow_can_cover_gap() {
         last_dot_seen: Some(Dot::new("S1", 3)),
         missing_dots: vec![Dot::new("S1", 2)],
     };
-    effect_policy(&mut state, &allow);
+    Policy::effect(&mut state, &allow);
 
-    let covered_gap = DocOp { dot: Dot::new("S1", 2), deps: vec![], edit: TextEdit::Insert { pos: 0, ch: 'a' } };
+    let covered_gap = DocOp { dot: Dot::new("S1", 2), deps: vec![], edit: TextMutation::Insert { pos: 0, ch: 'a' } };
     let seen_before_allow = DocOp {
         dot: Dot::new("S1", 3),
         deps: vec![],
-        edit: TextEdit::Insert { pos: 1, ch: 'b' },
+        edit: TextMutation::Insert { pos: 1, ch: 'b' },
     };
     let concurrent_after_allow = DocOp {
         dot: Dot::new("S1", 4),
         deps: vec![],
-        edit: TextEdit::Insert { pos: 2, ch: 'c' },
+        edit: TextMutation::Insert { pos: 2, ch: 'c' },
     };
-    effect_document(&mut state, &covered_gap);
-    effect_document(&mut state, &seen_before_allow);
-    effect_document(&mut state, &concurrent_after_allow);
+    Document::effect(&mut state, &covered_gap);
+    Document::effect(&mut state, &seen_before_allow);
+    Document::effect(&mut state, &concurrent_after_allow);
 
     assert_eq!(state.valid.get(&covered_gap.dot), Some(&true));
     assert_eq!(state.valid.get(&seen_before_allow.dot), Some(&true));
@@ -169,31 +170,31 @@ fn concurrent_batch_triggers_bulk_undo_redo() {
 
     let mut doc_dots = Vec::new();
     for ch in ['a', 'b', 'c', 'd', 'e', 'f'] {
-        let op = update_document(&mut s1, &mut d1, TextEdit::Insert { pos: 99, ch }).unwrap();
+        let op = Document::update(&mut s1, &mut d1, TextMutation::Insert { pos: 99, ch }).unwrap();
         doc_dots.push(op.dot);
     }
-    assert_eq!(current_text(&s1), "abcdef");
+    assert_eq!(Document::compensation(&s1), "abcdef");
 
     // 7 concurrent operations total: 6 document writes on S1, 1 deny on S2.
-    update_policy(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Deny).unwrap();
+    Policy::update(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Deny).unwrap();
     sync_pair(&mut d1, &mut d2);
 
     rebuild_from_automerge(&mut s1, &mut d1);
     rebuild_from_automerge(&mut s2, &mut d2);
-    assert_eq!(current_text(&s1), "");
-    assert_eq!(current_text(&s2), "");
+    assert_eq!(Document::compensation(&s1), "");
+    assert_eq!(Document::compensation(&s2), "");
     for dot in &doc_dots {
         assert_eq!(s1.valid.get(dot), Some(&false));
         assert_eq!(s2.valid.get(dot), Some(&false));
     }
 
-    update_policy(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Allow).unwrap();
+    Policy::update(&mut s2, &mut d2, "S1".into(), Right::Write, Effect::Allow).unwrap();
     sync_pair(&mut d1, &mut d2);
 
     rebuild_from_automerge(&mut s1, &mut d1);
     rebuild_from_automerge(&mut s2, &mut d2);
-    assert_eq!(current_text(&s1), "abcdef");
-    assert_eq!(current_text(&s2), "abcdef");
+    assert_eq!(Document::compensation(&s1), "abcdef");
+    assert_eq!(Document::compensation(&s2), "abcdef");
     for dot in &doc_dots {
         assert_eq!(s1.valid.get(dot), Some(&true));
         assert_eq!(s2.valid.get(dot), Some(&true));
@@ -224,19 +225,19 @@ fn multi_peer_cascading_deny_undo_redo() {
     let (mut s1, mut d1) = sites.pop().unwrap();
 
     // -- Interval 0: S1 and S2 make concurrent document edits --
-    let op_a = update_document(&mut s1, &mut d1, TextEdit::Insert { pos: 0, ch: 'a' }).unwrap();
-    let op_b = update_document(&mut s1, &mut d1, TextEdit::Insert { pos: 99, ch: 'b' }).unwrap();
-    assert_eq!(current_text(&s1), "ab");
+    let op_a = Document::update(&mut s1, &mut d1, TextMutation::Insert { pos: 0, ch: 'a' }).unwrap();
+    let op_b = Document::update(&mut s1, &mut d1, TextMutation::Insert { pos: 99, ch: 'b' }).unwrap();
+    assert_eq!(Document::compensation(&s1), "ab");
 
-    let op_x = update_document(&mut s2, &mut d2, TextEdit::Insert { pos: 0, ch: 'x' }).unwrap();
-    let op_y = update_document(&mut s2, &mut d2, TextEdit::Insert { pos: 99, ch: 'y' }).unwrap();
-    assert_eq!(current_text(&s2), "xy");
+    let op_x = Document::update(&mut s2, &mut d2, TextMutation::Insert { pos: 0, ch: 'x' }).unwrap();
+    let op_y = Document::update(&mut s2, &mut d2, TextMutation::Insert { pos: 99, ch: 'y' }).unwrap();
+    assert_eq!(Document::compensation(&s2), "xy");
 
     let s1_dots = vec![op_a.dot.clone(), op_b.dot.clone()];
     let s2_dots_early = vec![op_x.dot.clone(), op_y.dot.clone()];
 
     // -- Interval 1: S3 denies S1 Write concurrently with the edits above --
-    update_policy(&mut s3, &mut d3, "S1".into(), Right::Write, Effect::Deny).unwrap();
+    Policy::update(&mut s3, &mut d3, "S1".into(), Right::Write, Effect::Deny).unwrap();
     assert!(!eval(&s3, &"S1".into(), Right::Write));
 
     // Sync all peers
@@ -273,18 +274,18 @@ fn multi_peer_cascading_deny_undo_redo() {
         assert_eq!(s3.valid.get(dot), Some(&true), "S2 dot {:?} should be valid on S3", dot);
     }
     // All three peers converge on the same text (only S2's edits visible)
-    let text_after_interval1 = current_text(&s1);
-    assert_eq!(text_after_interval1, current_text(&s2));
-    assert_eq!(text_after_interval1, current_text(&s3));
+    let text_after_interval1 = Document::compensation(&s1);
+    assert_eq!(text_after_interval1, Document::compensation(&s2));
+    assert_eq!(text_after_interval1, Document::compensation(&s3));
     assert!(!text_after_interval1.contains('a') && !text_after_interval1.contains('b'));
     assert!(text_after_interval1.contains('x') && text_after_interval1.contains('y'));
 
     // -- S2 makes another edit while still allowed --
-    let op_z = update_document(&mut s2, &mut d2, TextEdit::Insert { pos: 99, ch: 'z' }).unwrap();
+    let op_z = Document::update(&mut s2, &mut d2, TextMutation::Insert { pos: 99, ch: 'z' }).unwrap();
     let s2_dots_all = vec![op_x.dot.clone(), op_y.dot.clone(), op_z.dot.clone()];
 
     // -- Interval 2: S3 denies S2 Write --
-    update_policy(&mut s3, &mut d3, "S2".into(), Right::Write, Effect::Deny).unwrap();
+    Policy::update(&mut s3, &mut d3, "S2".into(), Right::Write, Effect::Deny).unwrap();
     assert!(!eval(&s3, &"S2".into(), Right::Write));
 
     // Sync all peers
@@ -322,13 +323,13 @@ fn multi_peer_cascading_deny_undo_redo() {
         assert_eq!(s3.valid.get(dot), Some(&false));
     }
     // All peers converge on empty text
-    assert_eq!(current_text(&s1), "");
-    assert_eq!(current_text(&s2), "");
-    assert_eq!(current_text(&s3), "");
+    assert_eq!(Document::compensation(&s1), "");
+    assert_eq!(Document::compensation(&s2), "");
+    assert_eq!(Document::compensation(&s3), "");
 
     // -- Interval 3: S3 re-allows both S1 and S2 Write (redo) --
-    update_policy(&mut s3, &mut d3, "S1".into(), Right::Write, Effect::Allow).unwrap();
-    update_policy(&mut s3, &mut d3, "S2".into(), Right::Write, Effect::Allow).unwrap();
+    Policy::update(&mut s3, &mut d3, "S1".into(), Right::Write, Effect::Allow).unwrap();
+    Policy::update(&mut s3, &mut d3, "S2".into(), Right::Write, Effect::Allow).unwrap();
     assert!(eval(&s3, &"S1".into(), Right::Write));
     assert!(eval(&s3, &"S2".into(), Right::Write));
 
@@ -378,9 +379,9 @@ fn multi_peer_cascading_deny_undo_redo() {
         assert_eq!(s3.valid.get(dot), Some(&true));
     }
     // All peers converge on the same final text containing all edits
-    let final_text = current_text(&s1);
-    assert_eq!(final_text, current_text(&s2));
-    assert_eq!(final_text, current_text(&s3));
+    let final_text = Document::compensation(&s1);
+    assert_eq!(final_text, Document::compensation(&s2));
+    assert_eq!(final_text, Document::compensation(&s3));
     assert!(final_text.contains('a') && final_text.contains('b'),
         "S1 edits missing from final text: {}", final_text);
     assert!(final_text.contains('x') && final_text.contains('y') && final_text.contains('z'),

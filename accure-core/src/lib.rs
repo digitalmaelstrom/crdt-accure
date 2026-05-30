@@ -14,7 +14,9 @@ pub mod integrate;
 pub mod automerge_bridge;
 pub mod wire;
 pub mod messages;
+pub mod model;
 
 pub use dot::{Dot, SiteId};
-pub use op::{DocOp, Effect, Operation, PolicyOp, Right, TextEdit};
+pub use op::{DocOp, Effect, Operation, PolicyOp, Right, TextEdit, TextMutation};
 pub use state::{AccessTuple, State, Strategy};
+pub use model::{Document, Policy};

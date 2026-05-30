@@ -3,10 +3,11 @@
 //! and assert each site's derived state is identical.
 
 use accure_core::integrate::{
-    current_text, new_shared_doc, new_state_from_bytes, rebuild_from_automerge, update_document,
-    update_policy,
+    new_shared_doc, new_state_from_bytes, rebuild_from_automerge,
 };
-use accure_core::op::{Effect, Right, TextEdit};
+use accure_core::model::{Document, Policy};
+use accure_core::model::document::TextMutation;
+use accure_core::op::{Effect, Right};
 use accure_core::state::Strategy as ConflictStrategy;
 use automerge::{sync::SyncDoc, AutoCommit};
 use proptest::prelude::{Strategy, *};
@@ -84,10 +85,10 @@ proptest! {
             let (state, doc) = &mut peers[who];
             match op {
                 Op::Insert(p, c) => {
-                    let _ = update_document(state, doc, TextEdit::Insert { pos: p, ch: c });
+                    let _ = Document::update(state, doc, TextMutation::Insert { pos: p, ch: c });
                 }
                 Op::Allow(target, right) => {
-                    let _ = update_policy(state, doc, target, right, Effect::Allow);
+                    let _ = Policy::update(state, doc, target, right, Effect::Allow);
                 }
                 Op::Sync => {
                     let mut docs: Vec<AutoCommit> =
@@ -113,7 +114,7 @@ proptest! {
             rebuild_from_automerge(s, d);
         }
 
-        let texts: Vec<String> = peers.iter().map(|(s, _)| current_text(s)).collect();
+        let texts: Vec<String> = peers.iter().map(|(s, _)| Document::compensation(s)).collect();
         let valids: Vec<_> = peers.iter().map(|(s, _)| s.valid.clone()).collect();
         prop_assert!(texts.iter().all(|t| t == &texts[0]), "texts diverge: {:?}", texts);
         prop_assert!(valids.iter().all(|v| v == &valids[0]), "validity diverges");

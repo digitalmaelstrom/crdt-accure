@@ -3,9 +3,10 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use accure_core::integrate::{current_text, update_document, update_policy};
 use accure_core::messages::{ClientCommand, ServerEvent, Snapshot};
-use accure_core::op::{Effect, Right, TextEdit};
+use accure_core::model::{Document, Policy};
+use accure_core::model::document::TextMutation;
+use accure_core::op::{Effect, Right};
 use accure_core::wire::{read_frame, write_frame};
 use anyhow::Result;
 use tokio::net::{TcpListener, TcpStream};
@@ -72,7 +73,7 @@ async fn handle(server: Arc<Server>, sock: TcpStream) -> Result<()> {
                 let res = {
                     let mut st = server.state.lock().await;
                     let mut doc = server.doc.lock().await;
-                    update_document(&mut *st, &mut *doc, TextEdit::Insert { pos, ch })
+                    Document::update(&mut *st, &mut *doc, TextMutation::Insert { pos, ch })
                 };
                 match res {
                     Ok(op) => {
@@ -89,7 +90,7 @@ async fn handle(server: Arc<Server>, sock: TcpStream) -> Result<()> {
                 let res = {
                     let mut st = server.state.lock().await;
                     let mut doc = server.doc.lock().await;
-                    update_document(&mut *st, &mut *doc, TextEdit::Delete { pos })
+                    Document::update(&mut *st, &mut *doc, TextMutation::Delete { pos })
                 };
                 match res {
                     Ok(op) => {
@@ -106,7 +107,7 @@ async fn handle(server: Arc<Server>, sock: TcpStream) -> Result<()> {
                 let res = {
                     let mut st = server.state.lock().await;
                     let mut doc = server.doc.lock().await;
-                    update_policy(&mut *st, &mut *doc, target.clone(), right, Effect::Allow)
+                    Policy::update(&mut *st, &mut *doc, target.clone(), right, Effect::Allow)
                 };
                 match res {
                     Ok(op) => {
@@ -123,7 +124,7 @@ async fn handle(server: Arc<Server>, sock: TcpStream) -> Result<()> {
                 let res = {
                     let mut st = server.state.lock().await;
                     let mut doc = server.doc.lock().await;
-                    update_policy(&mut *st, &mut *doc, target.clone(), right, Effect::Deny)
+                    Policy::update(&mut *st, &mut *doc, target.clone(), right, Effect::Deny)
                 };
                 match res {
                     Ok(op) => {
@@ -148,7 +149,7 @@ async fn handle(server: Arc<Server>, sock: TcpStream) -> Result<()> {
 
 pub async fn build_snapshot(server: &Server) -> Snapshot {
     let st = server.state.lock().await;
-    let document = current_text(&st);
+    let document = Document::compensation(&st);
     // Compute (site, right, allowed) for every known target site.
     let mut sites: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     sites.insert(st.me.clone());
