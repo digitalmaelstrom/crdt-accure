@@ -1,4 +1,4 @@
-crdt-accure
+# Illustrative Rust implmentation of ACCURE protocol (crdt-accure)
 
 This project is a toy proof-of-concept implementation for the purposes of illustrating and visualizing the results of [Access control based on CRDTs for Collaborative Distributed Applications](https://inria.hal.science/hal-04224855v1/file/paper%20%281%29.pdf) by Pierre-Antoine Rault, Claudia-Lavinia Ignat, Olivier Perrin.
 
