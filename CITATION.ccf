@@ -1,0 +1,41 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: crdt-accure
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - name: Digital Maelstrom
+    city: Kansas City
+    country: US
+    location: Missouri
+    website: 'https://www.digitalmaelstrom.net'
+  - given-names: Jeff
+    family-names: Stice-Hall
+identifiers:
+  - type: url
+    value: 'https://inria.hal.science/hal-04224855v1'
+    description: >-
+      Pierre-Antoine Rault, Claudia-Lavinia Ignat, Olivier
+      Perrin. Access control based on CRDTs for
+      Collaborative Distributed Applications. The 22nd IEEE
+      International Conference on Trust, Security and
+      Privacy in Computing and Communications
+      (TrustCom-2023), Nov 2023, Exeter, United Kingdom.
+      ⟨hal-04224855⟩
+repository-code: 'https://github.com/DigitalMaelstrom/crdt-accure'
+abstract: >-
+  Toy Rust implementation of ACCURE algorithm described by
+  Pierre-Antoine Rault, Claudia-Lavinia Ignat, Olivier
+  Perrin in 'Access control based on CRDTs for Collaborative
+  Distributed Applications'
+keywords:
+  - real-time collaborative editing
+  - eventual consistency
+  - CRDT (Conflict-free Replicated Data Type)
+  - access control
+  - distributed algorithms
+license: MIT
