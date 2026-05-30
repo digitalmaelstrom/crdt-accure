@@ -53,7 +53,8 @@ pub enum TextEdit {
 }
 
 /// Type alias aligning `TextEdit` to the domain model naming convention.
-/// Prefer using `model::document::TextMutation` for new code.
+/// New code should prefer importing via `model::document::TextMutation`
+/// or `accure_core::TextMutation`. The underlying type remains `TextEdit`.
 pub type TextMutation = TextEdit;
 
 /// Policy operation, mirroring `BasicOperation` of `Type ..= policy`
