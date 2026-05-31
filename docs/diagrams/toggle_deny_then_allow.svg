@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="340" viewBox="0 0 780 340" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#555"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="780" height="340" fill="#ffffff"/>
+  <text x="390" y="28" text-anchor="middle" font-size="18" font-weight="bold" fill="#1b1f23">toggle_deny_then_allow</text>
+  <text x="390" y="48" text-anchor="middle" font-size="12" fill="#586069">A right is denied, then re-allowed; the policy DAG resolves to the latest effect (redo)</text>
+
+  <!-- single lane -->
+  <text x="40" y="138" font-size="14" font-weight="bold" fill="#1b1f23">A</text>
+  <line x1="60" y1="130" x2="720" y2="130" stroke="#d1d5da" stroke-width="2"/>
+
+  <!-- initial -->
+  <rect x="80" y="108" width="120" height="44" rx="6" fill="#f6f8fa" stroke="#959da5"/>
+  <text x="140" y="126" text-anchor="middle" font-size="12" fill="#1b1f23">initial</text>
+  <text x="140" y="143" text-anchor="middle" font-size="11" fill="#22863a">B Write = allow</text>
+
+  <line x1="200" y1="130" x2="248" y2="130" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- deny -->
+  <rect x="250" y="108" width="150" height="44" rx="6" fill="#ffeef0" stroke="#d73a49"/>
+  <text x="325" y="126" text-anchor="middle" font-size="12" fill="#86181d">PolicyOp A@1</text>
+  <text x="325" y="143" text-anchor="middle" font-size="11" fill="#86181d">Deny B Write</text>
+
+  <line x1="400" y1="130" x2="448" y2="130" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- allow -->
+  <rect x="450" y="108" width="150" height="44" rx="6" fill="#e6ffed" stroke="#28a745"/>
+  <text x="525" y="126" text-anchor="middle" font-size="12" fill="#165c26">PolicyOp A@2</text>
+  <text x="525" y="143" text-anchor="middle" font-size="11" fill="#165c26">Allow B Write</text>
+  <text x="525" y="170" text-anchor="middle" font-size="10" fill="#586069">deps: [A@1]</text>
+
+  <!-- state checkpoints -->
+  <rect x="250" y="200" width="150" height="40" rx="6" fill="#fff5f5" stroke="#d73a49"/>
+  <text x="325" y="218" text-anchor="middle" font-size="11" fill="#86181d">after A@1</text>
+  <text x="325" y="233" text-anchor="middle" font-size="12" fill="#86181d">eval(B, Write) = false</text>
+
+  <rect x="450" y="200" width="150" height="40" rx="6" fill="#e6ffed" stroke="#28a745"/>
+  <text x="525" y="218" text-anchor="middle" font-size="11" fill="#165c26">after A@2</text>
+  <text x="525" y="233" text-anchor="middle" font-size="12" fill="#165c26">eval(B, Write) = true</text>
+
+  <line x1="325" y1="152" x2="325" y2="198" stroke="#959da5" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="525" y1="152" x2="525" y2="198" stroke="#959da5" stroke-width="1" stroke-dasharray="3 3"/>
+
+  <text x="60" y="290" font-size="12" fill="#586069">Because the Allow op depends on the Deny op, it sits later in the per-tuple DAG and wins.</text>
+  <text x="60" y="308" font-size="12" fill="#586069">The toggle is the policy-level "redo": evaluating the access tuple yields the most recent effect.</text>
+</svg>

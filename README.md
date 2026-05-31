@@ -119,6 +119,65 @@ This runs:
   spawns two real `accure-server` processes communicating over loopback
   TCP and drives them through the binary client wire protocol.
 
+## Conflict-resolution & undo/redo test cases
+
+The diagrams below visualize the `accure-core/tests/paper_figures.rs`
+scenarios that exercise conflict resolution and undo/redo semantics. Each
+diagram traces the operations emitted on every site, the sync/rebuild step,
+and the resulting document text and validity state — mirroring exactly what
+the corresponding `#[test]` asserts.
+
+### `fig2_compensation_after_concurrent_deny`
+
+S1 inserts a character while, concurrently, S2 denies S1's `Write` right.
+After sync the deny retroactively invalidates the insert (compensation /
+undo), so both sites converge on empty text.
+
+![fig2_compensation_after_concurrent_deny](docs/diagrams/fig2_compensation_after_concurrent_deny.svg)
+
+### `concurrent_batch_triggers_bulk_undo_redo`
+
+A six-character insert batch on S1 races a single `Deny S1 Write` on S2.
+The deny undoes the whole batch at once; a later `Allow S1 Write` redoes
+the entire batch. Text is recomputed from the set of currently-valid
+`DocOp`s, so no per-character undo bookkeeping is required.
+
+![concurrent_batch_triggers_bulk_undo_redo](docs/diagrams/concurrent_batch_triggers_bulk_undo_redo.svg)
+
+### `toggle_deny_then_allow`
+
+Denying then re-allowing a right on a single site shows the policy-level
+redo: the `Allow` op depends on the `Deny`, sits later in the per-tuple
+DAG, and therefore wins when the access tuple is evaluated.
+
+![toggle_deny_then_allow](docs/diagrams/toggle_deny_then_allow.svg)
+
+### `fig1_policy_convergence_integrity`
+
+S1 and S2 concurrently revoke each other's `Admin` right across three
+peers. The DAG-based validity evaluation is order-independent, so after
+full sync all three sites agree on the same decision (the test asserts
+agreement rather than a specific winner).
+
+![fig1_policy_convergence_integrity](docs/diagrams/fig1_policy_convergence_integrity.svg)
+
+### `missing_dots_allow_can_cover_gap`
+
+An `Allow` op carries `LastDotSeen` and `MissingDots`, which precisely
+bound the document ops it re-validates. Ops within that window are redone;
+a concurrent op the `Allow` never saw stays invalid — preventing an
+accidental redo.
+
+![missing_dots_allow_can_cover_gap](docs/diagrams/missing_dots_allow_can_cover_gap.svg)
+
+### `invalid_deps_propagate`
+
+The pre-emptive half of conflict resolution: once a site denies its own
+`Write` right, a subsequent local insert is rejected at emit time and never
+enters the log at all.
+
+![invalid_deps_propagate](docs/diagrams/invalid_deps_propagate.svg)
+
 ### Multi-peer cascading deny scenario
 
 The `multi_peer_cascading_deny_undo_redo` test exercises a non-trivial

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="430" viewBox="0 0 780 430" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#555"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="780" height="430" fill="#ffffff"/>
+  <text x="390" y="28" text-anchor="middle" font-size="18" font-weight="bold" fill="#1b1f23">missing_dots_allow_can_cover_gap</text>
+  <text x="390" y="48" text-anchor="middle" font-size="12" fill="#586069">An Allow op carries LastDotSeen + MissingDots, defining exactly which document ops it re-validates</text>
+
+  <!-- policy timeline -->
+  <text x="40" y="103" font-size="13" font-weight="bold" fill="#1b1f23">S0 policy</text>
+  <line x1="60" y1="118" x2="720" y2="118" stroke="#d1d5da" stroke-width="2"/>
+
+  <rect x="90" y="96" width="150" height="44" rx="6" fill="#ffeef0" stroke="#d73a49"/>
+  <text x="165" y="114" text-anchor="middle" font-size="12" fill="#86181d">PolicyOp S0@1</text>
+  <text x="165" y="130" text-anchor="middle" font-size="11" fill="#86181d">Deny S1 Write</text>
+
+  <line x1="240" y1="118" x2="300" y2="118" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="302" y="90" width="230" height="56" rx="6" fill="#e6ffed" stroke="#28a745"/>
+  <text x="417" y="108" text-anchor="middle" font-size="12" fill="#165c26">PolicyOp S0@2  Allow S1 Write</text>
+  <text x="417" y="125" text-anchor="middle" font-size="11" fill="#165c26">last_dot_seen = S1@3</text>
+  <text x="417" y="139" text-anchor="middle" font-size="11" fill="#165c26">missing_dots = [S1@2]</text>
+
+  <!-- document ops row -->
+  <text x="40" y="223" font-size="13" font-weight="bold" fill="#1b1f23">S1 docs</text>
+
+  <!-- S1@2 covered gap -->
+  <rect x="80" y="200" width="190" height="56" rx="6" fill="#e6ffed" stroke="#28a745"/>
+  <text x="175" y="218" text-anchor="middle" font-size="12" fill="#0b2e59">DocOp S1@2</text>
+  <text x="175" y="233" text-anchor="middle" font-size="11" fill="#165c26">in missing_dots → VALID</text>
+  <text x="175" y="248" text-anchor="middle" font-size="11" fill="#586069">"covered gap"</text>
+
+  <!-- S1@3 seen before allow -->
+  <rect x="290" y="200" width="190" height="56" rx="6" fill="#e6ffed" stroke="#28a745"/>
+  <text x="385" y="218" text-anchor="middle" font-size="12" fill="#0b2e59">DocOp S1@3</text>
+  <text x="385" y="233" text-anchor="middle" font-size="11" fill="#165c26">= last_dot_seen → VALID</text>
+  <text x="385" y="248" text-anchor="middle" font-size="11" fill="#586069">"seen before allow"</text>
+
+  <!-- S1@4 concurrent after allow -->
+  <rect x="500" y="200" width="200" height="56" rx="6" fill="#ffeef0" stroke="#d73a49"/>
+  <text x="600" y="218" text-anchor="middle" font-size="12" fill="#0b2e59">DocOp S1@4</text>
+  <text x="600" y="233" text-anchor="middle" font-size="11" fill="#86181d">beyond coverage → INVALID</text>
+  <text x="600" y="248" text-anchor="middle" font-size="11" fill="#586069">"concurrent after allow"</text>
+
+  <!-- coverage bracket -->
+  <line x1="80" y1="285" x2="480" y2="285" stroke="#28a745" stroke-width="2"/>
+  <text x="280" y="303" text-anchor="middle" font-size="11" fill="#165c26">re-validated window covered by the Allow</text>
+  <line x1="500" y1="285" x2="700" y2="285" stroke="#d73a49" stroke-width="2"/>
+  <text x="600" y="303" text-anchor="middle" font-size="11" fill="#86181d">outside coverage</text>
+
+  <text x="60" y="345" font-size="12" fill="#586069">Validity nuance: an Allow does not blindly re-validate every op for the target. It re-validates only the ops up to</text>
+  <text x="60" y="363" font-size="12" fill="#586069">its LastDotSeen plus any explicitly listed MissingDots. S1@2 (a gap the issuer filled) and S1@3 (last seen) are</text>
+  <text x="60" y="381" font-size="12" fill="#586069">re-enabled; S1@4 — concurrent with and unseen by the Allow — stays invalid, preventing accidental redo.</text>
+</svg>
